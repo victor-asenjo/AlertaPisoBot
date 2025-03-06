@@ -4,7 +4,7 @@ import json
 import time
 import logging
 from telegram import Bot, Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
 
 # Configuration
 URL = "https://www.registresolicitants.cat/registre/index.jsp"
@@ -53,7 +53,7 @@ def fetch_page():
 def extract_new_content(soup):
     """Extracts the relevant content from the page."""
     new_entries = []
-    for item in soup.find_all("div", class_="some_class"):  # Adjust selector accordingly
+    for item in soup.find_all("div", class_="NotHome"):  # Adjust selector accordingly
         title = item.text.strip()
         link = item.find("a")["href"] if item.find("a") else ""
         new_entries.append({"title": title, "link": link})
@@ -79,6 +79,47 @@ def notify_telegram(new_entries):
         for user in users:
             bot.send_message(chat_id=user, text=message)
 
+def check_now(update: Update, context: CallbackContext) -> None:
+    """Checks the website immediately and notifies users if new content is found."""
+    soup = fetch_page()
+    if soup:
+        seen_content = load_seen_content()
+        new_entries = extract_new_content(soup)
+        fresh_entries = [entry for entry in new_entries if entry not in seen_content]
+
+        if fresh_entries:
+            notify_telegram(fresh_entries)
+            seen_content.extend(fresh_entries)
+            save_seen_content(seen_content)
+            update.message.reply_text("New content found and notified!")
+        else:
+            update.message.reply_text("No new content found.")
+
+def get_last_publication(update: Update, context: CallbackContext) -> None:
+    """Retrieves the last saved publication."""
+    seen_content = load_seen_content()
+    if seen_content:
+        last_entry = seen_content[-1]
+        message = f"Last publication:\n\n{last_entry['title']}\n{last_entry['link']}"
+    else:
+        message = "No publications found."
+    update.message.reply_text(message)
+
+def help_command(update: Update, context: CallbackContext) -> None:
+    """Provides a list of available commands."""
+    commands = (
+        "/start - Subscribes you to notifications\n"
+        "/check - Checks for new content immediately\n"
+        "/last - Retrieves the last saved publication\n"
+        "/help - Displays available commands"
+    )
+    update.message.reply_text(commands)
+
+def unknown_command(update: Update, context: CallbackContext) -> None:
+    """Handles unknown commands."""
+    update.message.reply_text("No te entiendo, envíame alguno de estos mensajes.")
+    help_command(update, context)
+
 def main():
     logging.info("Starting website monitoring...")
     seen_content = load_seen_content()
@@ -86,6 +127,10 @@ def main():
     updater = Updater(TELEGRAM_TOKEN)
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("check", check_now))
+    dispatcher.add_handler(CommandHandler("last", get_last_publication))
+    dispatcher.add_handler(CommandHandler("help", help_command))
+    dispatcher.add_handler(MessageHandler(Filters.command, unknown_command))
     updater.start_polling()
 
     while True:
@@ -106,3 +151,11 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+''''
+start - Inicia el robot; l'encén.
+check - Checks for new content immediately
+last - Retrieves the last saved publication
+help - Subscribes you to notifications
+'''
+
