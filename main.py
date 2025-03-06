@@ -3,8 +3,9 @@ from bs4 import BeautifulSoup
 import json
 import time
 import logging
-from telegram import Bot, Update
+from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
+from datetime import datetime
 
 # Configuration
 URL = "https://www.registresolicitants.cat/registre/index.jsp"
@@ -60,10 +61,13 @@ def extract_new_content(soup):
     return new_entries
 
 def load_seen_content():
-    """Loads previously seen content from a JSON file."""
+    """Loads previously seen content from a JSON file and sorts it by date."""
     try:
         with open(DATA_FILE, "r") as file:
-            return json.load(file)
+            content = json.load(file)
+            # Sort by date (first part of the title)
+            content.sort(key=lambda x: datetime.strptime(x["title"].split("\n")[0], "%d/%m/%Y"), reverse=True)
+            return content
     except (FileNotFoundError, json.JSONDecodeError):
         return []
 
@@ -73,11 +77,13 @@ def save_seen_content(content):
         json.dump(content, file, indent=4)
 
 def notify_telegram(new_entries):
-    """Sends a message via Telegram to all subscribed users."""
+    """Sends a message via Telegram to all subscribed users with inline buttons."""
     for entry in new_entries:
-        message = f"New publication found!\n\n{entry['title']}\n{entry['link']}"
+        message = f"New publication found!\n\n{entry['title']}"
+        keyboard = [[InlineKeyboardButton("View Publication", url=f"https://www.registresolicitants.cat/registre/{entry['link']}")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
         for user in users:
-            bot.send_message(chat_id=user, text=message)
+            bot.send_message(chat_id=user, text=message, reply_markup=reply_markup)
 
 def check_now(update: Update, context: CallbackContext) -> None:
     """Checks the website immediately and notifies users if new content is found."""
@@ -96,14 +102,20 @@ def check_now(update: Update, context: CallbackContext) -> None:
             update.message.reply_text("No new content found.")
 
 def get_last_publication(update: Update, context: CallbackContext) -> None:
-    """Retrieves the last saved publication."""
+    """Retrieves the last saved publication(s) and sends them with inline buttons."""
     seen_content = load_seen_content()
     if seen_content:
-        last_entry = seen_content[-1]
-        message = f"Last publication:\n\n{last_entry['title']}\n{last_entry['link']}"
+        # Get the most recent publication(s)
+        latest_date = datetime.strptime(seen_content[0]["title"].split("\n")[0], "%d/%m/%Y")
+        latest_entries = [entry for entry in seen_content if datetime.strptime(entry["title"].split("\n")[0], "%d/%m/%Y") == latest_date]
+
+        for entry in latest_entries:
+            message = f"🔊 Last publication:\n\n{entry['title']}"
+            keyboard = [[InlineKeyboardButton("View Publication", url=f"https://www.registresolicitants.cat/registre/{entry['link']}")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            update.message.reply_text(message, reply_markup=reply_markup)
     else:
-        message = "No publications found."
-    update.message.reply_text(message)
+        update.message.reply_text("No publications found.")
 
 def help_command(update: Update, context: CallbackContext) -> None:
     """Provides a list of available commands."""
@@ -151,11 +163,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-''''
-start - Inicia el robot; l'encén.
-check - Checks for new content immediately
-last - Retrieves the last saved publication
-help - Subscribes you to notifications
-'''
-
