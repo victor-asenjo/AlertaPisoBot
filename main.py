@@ -4,7 +4,7 @@ import json
 import time
 import logging
 from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext, MessageHandler, Filters
 from datetime import datetime
 from dotenv import load_dotenv
 import os
@@ -145,12 +145,12 @@ def get_status(update: Update, context: CallbackContext) -> None:
     # Add a keyboard with some links
     keyboard = [
         [InlineKeyboardButton("View Website", url=URL)],
+        [InlineKeyboardButton("Bot Status", url="https://alertapisobot.onrender.com/")],
         [InlineKeyboardButton("Subscribe to Notifications", callback_data="start")],
         [InlineKeyboardButton("Unsubscribe from Notifications", callback_data="stop")],
         [InlineKeyboardButton("View Last Publication", callback_data="last")],
         [InlineKeyboardButton("Check for New Content", callback_data="check")],
-        [InlineKeyboardButton("Help", callback_data="help")],
-        [InlineKeyboardButton("Bot Status", url="https://alertapisobot.onrender.com/")]
+        [InlineKeyboardButton("Help", callback_data="help")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(message, reply_markup=reply_markup)
@@ -171,6 +171,23 @@ def unknown_command(update: Update, context: CallbackContext) -> None:
     """Handles unknown commands."""
     update.message.reply_text("No te entiendo, envíame alguno de estos mensajes.")
     help_command(update, context)
+
+def callback_query_handler(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+
+    if query.data == "start":
+        start(update, context)
+    elif query.data == "stop":
+        stop(update, context)
+    elif query.data == "last":
+        get_last_publication(update, context)
+    elif query.data == "check":
+        check_now(update, context)
+    elif query.data == "help":
+        help_command(update, context)
+    else:
+        query.edit_message_text(text="Unknown command.")
 
 from flask import Flask, render_template_string
 
@@ -322,6 +339,7 @@ def main():
     dispatcher.add_handler(CommandHandler("status", get_status))
     dispatcher.add_handler(CommandHandler("help", help_command))
     dispatcher.add_handler(MessageHandler(Filters.command, unknown_command))
+    dispatcher.add_handler(CallbackQueryHandler(callback_query_handler))  # Add this line
     updater.start_polling()
 
     while True:
