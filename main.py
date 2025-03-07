@@ -6,14 +6,17 @@ import logging
 from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
 from datetime import datetime
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 # Configuration
 URL = "https://www.registresolicitants.cat/registre/index.jsp"
 DATA_FILE = "seen_content.json"
 USERS_FILE = "users.json"
-TELEGRAM_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
-CHECK_INTERVAL = 600  # Check every 10 minutes
-
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN_ENV')
+CHECK_INTERVAL = 150  # Check every 10 minutes
+PROXIES = None
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
