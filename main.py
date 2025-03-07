@@ -43,7 +43,7 @@ def start(update: Update, context: CallbackContext) -> None:
     chat_id = update.message.chat_id
     users.add(chat_id)
     save_users(users)
-    update.message.reply_text("You are now subscribed to updates.")
+    update.message.reply_text("Ahora recibirás notificaciones cuando se publique nuevo contenido. 📬")
 
 def fetch_page():
     """Fetches the webpage and returns the parsed BeautifulSoup object."""
@@ -82,8 +82,11 @@ def save_seen_content(content):
 def notify_telegram(new_entries):
     """Sends a message via Telegram to all subscribed users with inline buttons."""
     for entry in new_entries:
-        message = f"New publication found!\n\n{entry['title']}"
-        keyboard = [[InlineKeyboardButton("View Publication", url=f"https://www.registresolicitants.cat/registre/{entry['link']}")]]
+        message = f"Han publicado un nuevo anuncio! 🔊🏘️🎉\n\n{entry['title']}"
+        keyboard = [
+            [InlineKeyboardButton("Muro general de anuncios", url=URL)]
+            [InlineKeyboardButton("Ver nueva publicación", url=f"https://www.registresolicitants.cat/registre/{entry['link']}")]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         for user in users:
             bot.send_message(chat_id=user, text=message, reply_markup=reply_markup)
@@ -100,9 +103,9 @@ def check_now(update: Update, context: CallbackContext) -> None:
             notify_telegram(fresh_entries)
             seen_content.extend(fresh_entries)
             save_seen_content(seen_content)
-            update.message.reply_text("New content found and notified!")
+            update.message.reply_text("Se ha encontrado una nueva publicación. 🎉")
         else:
-            update.message.reply_text("No new content found.")
+            update.message.reply_text("No se han encontrado nuevas publicaciones. 😢")
 
 def get_last_publication(update: Update, context: CallbackContext) -> None:
     """Retrieves the last saved publication(s) and sends them with inline buttons."""
@@ -118,7 +121,7 @@ def get_last_publication(update: Update, context: CallbackContext) -> None:
             reply_markup = InlineKeyboardMarkup(keyboard)
             update.message.reply_text(message, reply_markup=reply_markup)
     else:
-        update.message.reply_text("No publications found.")
+        update.message.reply_text("No se han encontrado publicaciones. 😶‍🌫️")
 
 def stop(update: Update, context: CallbackContext) -> None:
     """Handles the /stop command and unregisters the user."""
@@ -126,31 +129,26 @@ def stop(update: Update, context: CallbackContext) -> None:
     if chat_id in users:
         users.remove(chat_id)
         save_users(users)
-        update.message.reply_text("You are now unsubscribed from updates.")
+        update.message.reply_text("Ahora no recibirás notificaciones.")
     else:
-        update.message.reply_text("You are not subscribed.")
+        update.message.reply_text("No estás suscrito a las notificaciones.")
 
 def get_status(update: Update, context: CallbackContext) -> None:
     """Shows the current status of the service."""
-    message = f"🟢 Service is running and monitoring the website for new content.\n\n"
+    message = f"🟢 El bot está funcionando correctamente y está monitoreando la página web en busca de nuevas publicaciones.\n\n"
     # Check if who sends the message is subscribed
     chat_id = update.message.chat_id
     if chat_id in users:
-        message += "✅ You are subscribed to notifications\n"
+        message += "✅ Estás suscrito a las notificaciones.\n"
     else:
-        message += "❌ You are not subscribed to notifications\n"
-    message += f"📄 Total publications saved: {len(load_seen_content())}\n"
-    message += f"🔍 Check interval: {CHECK_INTERVAL} seconds"
+        message += "❌ No estás suscrito a las notificaciones.\n"
+    message += f"📄 Total publicaciones monitoreadas: {len(load_seen_content())}\n"
+    message += f"🔍 Intervalo de escaneo: {CHECK_INTERVAL} seconds"
 
     # Add a keyboard with some links
     keyboard = [
         [InlineKeyboardButton("View Website", url=URL)],
         [InlineKeyboardButton("Bot Status", url="https://alertapisobot.onrender.com/")],
-        [InlineKeyboardButton("Subscribe to Notifications", callback_data="start")],
-        [InlineKeyboardButton("Unsubscribe from Notifications", callback_data="stop")],
-        [InlineKeyboardButton("View Last Publication", callback_data="last")],
-        [InlineKeyboardButton("Check for New Content", callback_data="check")],
-        [InlineKeyboardButton("Help", callback_data="help")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(message, reply_markup=reply_markup)
@@ -158,12 +156,12 @@ def get_status(update: Update, context: CallbackContext) -> None:
 def help_command(update: Update, context: CallbackContext) -> None:
     """Provides a list of available commands."""
     commands = (
-        "/start - Subscribes you to notifications\n"
-        "/check - Checks for new content immediately\n"
-        "/last - Retrieves the last saved publication\n"
-        "/stop - Unsubscribes you from notifications\n"
-        "/status - Shows the current status of the service\n"
-        "/help - Displays available commands"
+        "/start - Suscríbete a notificaciones.\n"
+        "/check - Busca nuevas publicaciones.\n"
+        "/last - Muestra la última publicación.\n"
+        "/stop - Cancela tu suscripción.\n"
+        "/status - Verifica el estado del servicio.\n"
+        "/help - Lista de comandos.\n"
     )
     update.message.reply_text(commands)
 
@@ -171,23 +169,6 @@ def unknown_command(update: Update, context: CallbackContext) -> None:
     """Handles unknown commands."""
     update.message.reply_text("No te entiendo, envíame alguno de estos mensajes.")
     help_command(update, context)
-
-def callback_query_handler(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-
-    if query.data == "start":
-        start(update, context)
-    elif query.data == "stop":
-        stop(update, context)
-    elif query.data == "last":
-        get_last_publication(update, context)
-    elif query.data == "check":
-        check_now(update, context)
-    elif query.data == "help":
-        help_command(update, context)
-    else:
-        query.edit_message_text(text="Unknown command.")
 
 from flask import Flask, render_template_string
 
@@ -339,7 +320,6 @@ def main():
     dispatcher.add_handler(CommandHandler("status", get_status))
     dispatcher.add_handler(CommandHandler("help", help_command))
     dispatcher.add_handler(MessageHandler(Filters.command, unknown_command))
-    dispatcher.add_handler(CallbackQueryHandler(callback_query_handler))  # Add this line
     updater.start_polling()
 
     while True:
