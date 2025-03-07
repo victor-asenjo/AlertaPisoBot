@@ -120,12 +120,49 @@ def get_last_publication(update: Update, context: CallbackContext) -> None:
     else:
         update.message.reply_text("No publications found.")
 
+def stop(update: Update, context: CallbackContext) -> None:
+    """Handles the /stop command and unregisters the user."""
+    chat_id = update.message.chat_id
+    if chat_id in users:
+        users.remove(chat_id)
+        save_users(users)
+        update.message.reply_text("You are now unsubscribed from updates.")
+    else:
+        update.message.reply_text("You are not subscribed.")
+
+def get_status(update: Update, context: CallbackContext) -> None:
+    """Shows the current status of the service."""
+    message = f"🟢 Service is running and monitoring the website for new content.\n\n"
+    # Check if who sends the message is subscribed
+    chat_id = update.message.chat_id
+    if chat_id in users:
+        message += "✅ You are subscribed to notifications\n"
+    else:
+        message += "❌ You are not subscribed to notifications\n"
+    message += f"📄 Total publications saved: {len(load_seen_content())}\n"
+    message += f"🔍 Check interval: {CHECK_INTERVAL} seconds"
+
+    # Add a keyboard with some links
+    keyboard = [
+        [InlineKeyboardButton("View Website", url=URL)],
+        [InlineKeyboardButton("Subscribe to Notifications", callback_data="start")],
+        [InlineKeyboardButton("Unsubscribe from Notifications", callback_data="stop")],
+        [InlineKeyboardButton("View Last Publication", callback_data="last")],
+        [InlineKeyboardButton("Check for New Content", callback_data="check")],
+        [InlineKeyboardButton("Help", callback_data="help")],
+        [InlineKeyboardButton("Bot Status", url="https://alertapisobot.onrender.com/")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text(message, reply_markup=reply_markup)
+
 def help_command(update: Update, context: CallbackContext) -> None:
     """Provides a list of available commands."""
     commands = (
         "/start - Subscribes you to notifications\n"
         "/check - Checks for new content immediately\n"
         "/last - Retrieves the last saved publication\n"
+        "/stop - Unsubscribes you from notifications\n"
+        "/status - Shows the current status of the service\n"
         "/help - Displays available commands"
     )
     update.message.reply_text(commands)
@@ -281,6 +318,8 @@ def main():
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("check", check_now))
     dispatcher.add_handler(CommandHandler("last", get_last_publication))
+    dispatcher.add_handler(CommandHandler("stop", stop))
+    dispatcher.add_handler(CommandHandler("status", get_status))
     dispatcher.add_handler(CommandHandler("help", help_command))
     dispatcher.add_handler(MessageHandler(Filters.command, unknown_command))
     updater.start_polling()
