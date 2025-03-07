@@ -135,9 +135,30 @@ def unknown_command(update: Update, context: CallbackContext) -> None:
     update.message.reply_text("No te entiendo, envíame alguno de estos mensajes.")
     help_command(update, context)
 
+from flask import Flask
+
+# Add this at the top of your script
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Website monitoring service is running!"
+
+def run_flask():
+    """Runs the Flask server on port 8080."""
+    app.run(host='0.0.0.0', port=8080)
+
+# Modify the main function to run Flask in a separate thread
+from threading import Thread
+
 def main():
     logging.info("Starting website monitoring...")
     seen_content = load_seen_content()
+
+    # Start Flask in a separate thread
+    flask_thread = Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
 
     updater = Updater(TELEGRAM_TOKEN)
     dispatcher = updater.dispatcher
