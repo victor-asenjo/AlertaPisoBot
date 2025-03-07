@@ -135,14 +135,130 @@ def unknown_command(update: Update, context: CallbackContext) -> None:
     update.message.reply_text("No te entiendo, envíame alguno de estos mensajes.")
     help_command(update, context)
 
-from flask import Flask
+from flask import Flask, render_template_string
 
 # Add this at the top of your script
 app = Flask(__name__)
 
+# HTML template with inline CSS for a prettier interface
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Website Monitoring Service</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #2c3e50;
+        }
+        p {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+        }
+        .status {
+            font-size: 1.5rem;
+            color: #27ae60;
+            font-weight: bold;
+            margin-top: 1rem;
+        }
+        .last-publication {
+            margin-top: 2rem;
+            text-align: left;
+            background: #f9f9f9;
+            padding: 1rem;
+            border-radius: 5px;
+            border: 1px solid #e0e0e0;
+        }
+        .last-publication h2 {
+            font-size: 1.5rem;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        .last-publication p {
+            font-size: 1rem;
+            color: #7f8c8d;
+            margin: 0;
+        }
+        .footer {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: #95a5a6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Website Monitoring Service</h1>
+        <p>This service is actively monitoring the website for new content.</p>
+        <div class="status">🟢 Running</div>
+
+        <div class="last-publication">
+            <h2>Last Publication</h2>
+            {% if last_publication %}
+                <p><strong>Title:</strong> {{ last_publication.title }}</p>
+                <p><strong>Date:</strong> {{ last_publication.date }}</p>
+                <p><strong>Link:</strong> <a href="{{ last_publication.link }}" target="_blank">View Publication</a></p>
+            {% else %}
+                <p>No publications found.</p>
+            {% endif %}
+        </div>
+
+        <div class="footer">
+            Powered by #elPagès | Made with ❤️ | Using Render and UptimeRobot
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+def load_seen_content():
+    """Loads previously seen content from a JSON file and sorts it by date."""
+    try:
+        with open("seen_content.json", "r") as file:
+            content = json.load(file)
+            # Sort by date (first part of the title)
+            content.sort(key=lambda x: datetime.strptime(x["title"].split("\n")[0], "%d/%m/%Y"), reverse=True)
+            return content
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
 @app.route('/')
 def home():
-    return "Website monitoring service is running!"
+    """Renders a styled HTML page with the last publication."""
+    seen_content = load_seen_content()
+    last_publication = None
+    if seen_content:
+        latest_entry = seen_content[0]
+        last_publication = {
+            "title": latest_entry["title"],
+            "date": latest_entry["title"].split("\n")[0],  # Extract date from title
+            "link": f"https://www.registresolicitants.cat/registre/{latest_entry['link']}"
+        }
+
+    return render_template_string(HTML_TEMPLATE, last_publication=last_publication)
 
 def run_flask():
     """Runs the Flask server on port 8080."""
