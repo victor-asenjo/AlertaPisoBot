@@ -103,7 +103,6 @@ def check_now(update: Update, context: CallbackContext) -> None:
             notify_telegram(fresh_entries)
             seen_content.extend(fresh_entries)
             save_seen_content(seen_content)
-            update.message.reply_text("Se ha encontrado una nueva publicación. 🎉")
         else:
             update.message.reply_text("No se han encontrado nuevas publicaciones. 😢")
 
