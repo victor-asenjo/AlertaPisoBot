@@ -84,7 +84,7 @@ def notify_telegram(new_entries):
     for entry in new_entries:
         message = f"Han publicado un nuevo anuncio! 🔊🏘️🎉\n\n{entry['title']}"
         keyboard = [
-            [InlineKeyboardButton("Muro general de anuncios", url=URL)]
+            [InlineKeyboardButton("Muro general de anuncios", url=URL)],
             [InlineKeyboardButton("Ver nueva publicación", url=f"https://www.registresolicitants.cat/registre/{entry['link']}")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
